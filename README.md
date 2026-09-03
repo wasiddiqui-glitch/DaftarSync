@@ -4,6 +4,21 @@ A real-time collaborative document editor. Multiple users can write in the same 
 
 **Stack:** Next.js 16 · TypeScript · Tiptap · Yjs · Hocuspocus · Clerk · Neon (Postgres) · Drizzle ORM · Tailwind CSS
 
+**[Live demo →](https://daftarsync.vercel.app)** <!-- replace with your URL -->
+
+---
+
+## Features
+
+- **Real-time collaboration** — multiple cursors, sub-second sync via Yjs CRDTs + Hocuspocus WebSocket server
+- **Rich text editor** — headings, lists, task lists, code blocks, links, slash-command menu
+- **Role-based access control** — owner / editor / viewer; enforced at both the HTTP and WebSocket layer
+- **Version snapshots** — save and restore named point-in-time snapshots of any document
+- **Comments** — threaded per-document comments with resolve/unresolve
+- **Folders** — organize documents; move docs between folders
+- **Presence** — live avatar bar showing who's currently in the document
+- **Auth** — Clerk-managed sign-up / sign-in with Google OAuth support
+
 ---
 
 ## Architecture
@@ -184,6 +199,51 @@ npm run hocuspocus     # WebSocket server on :1234
 | `CLERK_SECRET_KEY` | Clerk secret key |
 | `NEXT_PUBLIC_HOCUSPOCUS_URL` | WebSocket URL (default `ws://localhost:1234`) |
 | `HOCUSPOCUS_PORT` | Port for Hocuspocus server (default `1234`) |
+| `HOCUSPOCUS_INTERNAL_URL` | Server-to-server URL for snapshot restore (default `http://localhost:1234`) |
+| `HOCUSPOCUS_INTERNAL_SECRET` | Shared secret for internal Hocuspocus calls |
+
+---
+
+## Production Deployment
+
+DaftarSync runs as two separate services:
+
+| Service | What | Where to deploy |
+|---|---|---|
+| **Next.js app** | HTTP API + React frontend | [Vercel](https://vercel.com) |
+| **Hocuspocus server** | WebSocket collaboration server | [Railway](https://railway.app) / [Fly.io](https://fly.io) / [Render](https://render.com) |
+
+### Next.js → Vercel
+
+```bash
+npm i -g vercel
+vercel deploy
+```
+
+Set all env vars in the Vercel dashboard. Use `wss://` for `NEXT_PUBLIC_HOCUSPOCUS_URL` in production.
+
+### Hocuspocus → Railway (example)
+
+1. Create a new Railway project, connect this repo
+2. Set the start command to `npm run hocuspocus`
+3. Set `DATABASE_URL`, `HOCUSPOCUS_PORT=1234`, `HOCUSPOCUS_INTERNAL_SECRET`
+4. Expose port 1234 — Railway gives you a public `wss://` URL
+5. Set that URL as `NEXT_PUBLIC_HOCUSPOCUS_URL` in Vercel
+
+### Horizontal scaling
+
+If you need multiple Hocuspocus instances (> ~500 concurrent editors), add a Redis adapter so instances can relay updates to each other. Hocuspocus supports this out of the box — see the Scaling Considerations section below.
+
+---
+
+## Tests
+
+```bash
+npm test          # run once
+npm run test:watch  # watch mode
+```
+
+Unit tests cover the permission-enforcement logic (`lib/permissions.ts`) and the user-sync helper (`lib/auth.ts`) with mocked DB and Clerk calls.
 
 ---
 
